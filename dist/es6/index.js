@@ -57,8 +57,10 @@ var InfiniteCalendar = function (_Component) {
 	function InfiniteCalendar(props) {
 		babelHelpers.classCallCheck(this, InfiniteCalendar);
 
+
 		// Initialize
-		var _this = babelHelpers.possibleConstructorReturn(this, (InfiniteCalendar.__proto__ || Object.getPrototypeOf(InfiniteCalendar)).call(this));
+
+		var _this = babelHelpers.possibleConstructorReturn(this, Object.getPrototypeOf(InfiniteCalendar).call(this));
 
 		_this.onDaySelect = function (selectedDate, e) {
 			var shouldHeaderAnimate = arguments.length <= 2 || arguments[2] === undefined ? _this.props.shouldHeaderAnimate : arguments[2];
@@ -84,9 +86,12 @@ var InfiniteCalendar = function (_Component) {
 							var prevCollapsed = _this.state.isCollapsed;
 
 							_this.setState({
+								isCollapsed: _this.state.desktop
+							});
+
+							_this.setState({
 								selectedDate: selectedDate,
-								selectedWeek: null,
-								isCollapsed: true
+								selectedWeek: null
 							}, function () {
 								_this.clearHighlight();
 
@@ -122,9 +127,12 @@ var InfiniteCalendar = function (_Component) {
 							var prevCollapsed = _this.state.isCollapsed;
 
 							_this.setState({
+								isCollapsed: _this.state.desktop
+							});
+
+							_this.setState({
 								selectedWeek: selectedWeek,
 								selectedDate: null,
-								isCollapsed: true,
 								isClickOnDatepicker: true
 							}, function () {
 								_this.clearHighlight();
@@ -165,7 +173,7 @@ var InfiniteCalendar = function (_Component) {
 			}, function () {
 				_this.list.scrollToDate(date, offset);
 
-				if (!_this.state.isCollapsed) {
+				if (!_this.state.isCollapsed && _this.state.desktop) {
 					_this.setState({
 						isCollapsed: true,
 						expandOnScroll: true
@@ -408,7 +416,9 @@ var InfiniteCalendar = function (_Component) {
 			display: props.display,
 			shouldHeaderAnimate: props.shouldHeaderAnimate,
 			isCollapsed: props.isCollapsed,
-			expandOnScroll: false
+			expandOnScroll: false,
+			desktop: props.desktop,
+			device: props.device
 		};
 		return _this;
 	}
@@ -462,12 +472,14 @@ var InfiniteCalendar = function (_Component) {
 			}
 
 			if (next.selectedDate !== null && moment(nextDate).valueOf() !== stateDate) {
-
 				if (new Date(nextDate).getTime() > new Date(minDate.year + "-01-01").getTime() && new Date(nextDate).getTime() < new Date(maxDate.year + "-12-31").getTime()) {
 					this.setState({
 						selectedWeek: null,
-						selectedDate: nextDate,
-						isCollapsed: true
+						selectedDate: nextDate
+					});
+
+					this.setState({
+						isCollapsed: this.state.desktop
 					});
 
 					this.clearHighlight();
@@ -479,8 +491,11 @@ var InfiniteCalendar = function (_Component) {
 				if (new Date(nextWeek).getTime() > new Date(minDate.year + "-01-01").getTime() && new Date(nextWeek).getTime() < new Date(maxDate.year + "-12-31").getTime()) {
 					this.setState({
 						selectedWeek: nextWeek,
-						selectedDate: null,
-						isCollapsed: true
+						selectedDate: null
+					});
+
+					this.setState({
+						isCollapsed: this.state.desktop
 					});
 
 					this.clearHighlight();
@@ -510,7 +525,7 @@ var InfiniteCalendar = function (_Component) {
 		value: function handleClickOutside(evt) {
 			var _this2 = this;
 
-			if (!this.state.isCollapsed) {
+			if (!this.state.isCollapsed && this.state.desktop) {
 				this.setState({
 					isCollapsed: true
 				}, function () {
@@ -628,7 +643,8 @@ var InfiniteCalendar = function (_Component) {
 			var width = _props3.width;
 			var showSelectionText = _props3.showSelectionText;
 			var device = _props3.device;
-			var other = babelHelpers.objectWithoutProperties(_props3, ['className', 'disabledDays', 'hideYearsOnSelect', 'hideYearsOnDate', 'keyboardSupport', 'layout', 'overscanMonthCount', 'min', 'minDate', 'max', 'maxDate', 'showTodayHelper', 'showHeader', 'tabIndex', 'width', 'showSelectionText', 'device']);
+			var desktop = _props3.desktop;
+			var other = babelHelpers.objectWithoutProperties(_props3, ['className', 'disabledDays', 'hideYearsOnSelect', 'hideYearsOnDate', 'keyboardSupport', 'layout', 'overscanMonthCount', 'min', 'minDate', 'max', 'maxDate', 'showTodayHelper', 'showHeader', 'tabIndex', 'width', 'showSelectionText', 'device', 'desktop']);
 
 			var disabledDates = this.getDisabledDates(this.props.disabledDates);
 			var locale = this.getLocale();
@@ -661,7 +677,7 @@ var InfiniteCalendar = function (_Component) {
 					style: { color: theme.textColor.default, width: '100%', overflow: isCollapsed ? 'hidden' : 'visible', height: collapsedHeight + "px" },
 					'aria-label': 'Calendar', ref: 'node'
 				},
-				React.createElement('div', {
+				desktop && React.createElement('div', {
 					className: classNames(style.expansionButton.root, 'ion-chevron-down'),
 					style: { display: isCollapsed ? 'initial' : 'none' },
 					onClick: this.handleExpansionClick
@@ -763,7 +779,8 @@ InfiniteCalendar.defaultProps = {
 	hideYearsOnDate: true,
 	showSelectionText: true,
 	isClickOnDatepicker: false,
-	device: true
+	device: true,
+	desktop: true
 };
 InfiniteCalendar.propTypes = {
 	selectedDate: validDate,
@@ -803,7 +820,8 @@ InfiniteCalendar.propTypes = {
 	showHeader: PropTypes.bool,
 	showSelectionText: PropTypes.bool,
 	isClickOnDatepicker: PropTypes.bool,
-	device: PropTypes.bool
+	device: PropTypes.bool,
+	desktop: PropTypes.bool
 };
 ;
 
