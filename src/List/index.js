@@ -65,24 +65,59 @@ export default class List extends Component {
 
 		return index;
 	};
+	normalizeDate = (date) => {
+		// Accepts a parsed {date, yyyymmdd} object, a moment, or anything moment
+		// can parse (Date, ISO string). Returns a moment or null.
+		if (!date) return null;
+		if (date.date && moment.isMoment(date.date)) return date.date;
+		if (moment.isMoment(date)) return date;
+		return moment(date);
+	};
 	getDateOffset = (date) => {
 		let {min, rowHeight} = this.props;
-		let weeks = date.clone().startOf('week').diff(min.date.clone().startOf('month'), 'weeks')
-		
-		return (weeks  * rowHeight) + rowHeight;
+		let dateMoment = this.normalizeDate(date) || moment();
+		let minMoment = this.normalizeDate(min) || moment();
+		let weeks = dateMoment.clone().startOf('week').diff(minMoment.clone().startOf('month'), 'weeks');
+
+		return (weeks * rowHeight) + rowHeight;
 	};
 	getCurrentOffset = () => {
 		if (this.scrollEl) {
 			return this.scrollEl.scrollTop;
 		}
 	}
-	scrollToDate = (date, offset = 0) => {
-		let offsetTop = this.getDateOffset(date);
-		this.scrollTo(offsetTop + offset);
+	isDateVisible = (date) => {
+		if (!this.scrollEl) return false;
+		let {height, rowHeight} = this.props;
+		// clientHeight can report ~0 while the picker is collapsed (the outer
+		// container clips with overflow: hidden) — fall back to the expanded
+		// height so the visibility check reflects what an expanded picker shows.
+		let containerHeight = this.scrollEl.clientHeight;
+		if (!containerHeight || containerHeight < 100) containerHeight = height || 270;
+		let targetOffset = this.getDateOffset(date);
+		let currentScrollTop = this.scrollEl.scrollTop;
+		let isAbove = targetOffset < currentScrollTop;
+		let isBelow = (targetOffset + (rowHeight || 40)) > (currentScrollTop + containerHeight);
+
+		return !isAbove && !isBelow;
 	};
-	scrollTo = (scrollTop = 0) => {
+	scrollToDate = (date, offset = 0, forceScroll = false, animated = true) => {
+		if (!date) return;
+		let offsetTop = this.getDateOffset(date);
+
+		// Already in view: leave the scroll position alone so selecting an
+		// adjacent visible week/day only moves the selection indicator.
+		if (!forceScroll && this.isDateVisible(date)) return;
+
+		this.scrollTo(offsetTop + offset, animated);
+	};
+	scrollTo = (scrollTop = 0, animated = false) => {
 		if (this.scrollEl) {
-			this.scrollEl.scrollTop = scrollTop;
+			if (animated && typeof this.scrollEl.scrollTo === 'function') {
+				this.scrollEl.scrollTo({top: scrollTop, behavior: 'smooth'});
+			} else {
+				this.scrollEl.scrollTop = scrollTop;
+			}
 		}
 	};
 	renderMonth = ({index, isScrolling}) => {
@@ -115,8 +150,13 @@ export default class List extends Component {
 		);
 	};
 	render() {
-		let {height, isScrolling, onScroll, overscanMonthCount, months, rowHeight, selectedDate, today, width} = this.props;
-		if (!this._initScrollTop) this._initScrollTop = this.getDateOffset(selectedDate && selectedDate.date || today.date);
+		let {height, isScrolling, onScroll, overscanMonthCount, months, rowHeight, selectedDate, selectedWeek, today, width} = this.props;
+		// Initial scroll position only — the scrollTop prop must stay constant
+		// after mount so VirtualScroll doesn't snap while scrollToDate animates.
+		if (!this._initScrollTop) {
+			let target = selectedDate && selectedDate.date || selectedWeek && selectedWeek.date || today.date;
+			this._initScrollTop = this.getDateOffset(target);
+		}
 		if (typeof width == 'string' && width.indexOf('%') !== -1) {
 			width = window.innerWidth * parseInt(width.replace('%', ''), 10) / 100; // See https://github.com/bvaughn/react-virtualized/issues/229
 		}

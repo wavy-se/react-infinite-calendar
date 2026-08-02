@@ -57,97 +57,83 @@ var InfiniteCalendar = function (_Component) {
 	function InfiniteCalendar(props) {
 		babelHelpers.classCallCheck(this, InfiniteCalendar);
 
-
 		// Initialize
-
-		var _this = babelHelpers.possibleConstructorReturn(this, Object.getPrototypeOf(InfiniteCalendar).call(this));
+		var _this = babelHelpers.possibleConstructorReturn(this, (InfiniteCalendar.__proto__ || Object.getPrototypeOf(InfiniteCalendar)).call(this));
 
 		_this.onDaySelect = function (selectedDate, e) {
-			var shouldHeaderAnimate = arguments.length <= 2 || arguments[2] === undefined ? _this.props.shouldHeaderAnimate : arguments[2];
+			var shouldHeaderAnimate = arguments.length > 2 && arguments[2] !== undefined ? arguments[2] : _this.props.shouldHeaderAnimate;
 
 			if (selectedDate !== _this.state.selectedDate) {
-				(function () {
-					var _this$props = _this.props;
-					var afterSelect = _this$props.afterSelect;
-					var beforeSelect = _this$props.beforeSelect;
-					var onSelect = _this$props.onSelect;
+				var _this$props = _this.props,
+				    afterSelect = _this$props.afterSelect,
+				    beforeSelect = _this$props.beforeSelect,
+				    onSelect = _this$props.onSelect;
 
+
+				_this.setState({
+					isClickOnDatepicker: true
+				});
+
+				if (!beforeSelect || typeof beforeSelect == 'function' && beforeSelect(selectedDate)) {
+					if (typeof onSelect == 'function') {
+						onSelect(selectedDate, e);
+					}
 
 					_this.setState({
-						isClickOnDatepicker: true
+						isCollapsed: _this.state.desktop
 					});
 
-					if (!beforeSelect || typeof beforeSelect == 'function' && beforeSelect(selectedDate)) {
-						(function () {
-							if (typeof onSelect == 'function') {
-								onSelect(selectedDate, e);
-							}
+					_this.setState({
+						selectedDate: selectedDate,
+						selectedWeek: null
+					}, function () {
+						_this.clearHighlight();
 
-							var prevCollapsed = _this.state.isCollapsed;
+						if (selectedDate) {
+							_this.scrollToDate(selectedDate, 0);
+						}
 
-							_this.setState({
-								isCollapsed: _this.state.desktop
-							});
-
-							_this.setState({
-								selectedDate: selectedDate,
-								selectedWeek: null
-							}, function () {
-								_this.clearHighlight();
-
-								if (!prevCollapsed || moment(selectedDate).format('YYYYMMDD') === moment().format('YYYYMMDD')) {
-									_this.scrollToDate(selectedDate, 0);
-								}
-
-								if (typeof afterSelect == 'function') {
-									afterSelect(selectedDate);
-								}
-							});
-						})();
-					}
-				})();
+						if (typeof afterSelect == 'function') {
+							afterSelect(selectedDate);
+						}
+					});
+				}
 			}
 		};
 
-		_this.onWeekSelect = function (selectedWeek) {
+		_this.onWeekSelect = function (selectedWeek, e) {
 			if (selectedWeek !== _this.state.selectedWeek) {
-				(function () {
-					var _this$props2 = _this.props;
-					var afterSelect = _this$props2.afterSelect;
-					var beforeSelect = _this$props2.beforeSelect;
-					var onSelect = _this$props2.onSelect;
+				var _this$props2 = _this.props,
+				    afterSelect = _this$props2.afterSelect,
+				    beforeSelect = _this$props2.beforeSelect,
+				    onSelect = _this$props2.onSelect;
 
 
-					if (!beforeSelect || typeof beforeSelect == 'function' && beforeSelect(selectedWeek)) {
-						(function () {
-							if (typeof onSelect == 'function') {
-								onSelect(selectedWeek, e);
-							}
-
-							var prevCollapsed = _this.state.isCollapsed;
-
-							_this.setState({
-								isCollapsed: _this.state.desktop
-							});
-
-							_this.setState({
-								selectedWeek: selectedWeek,
-								selectedDate: null,
-								isClickOnDatepicker: true
-							}, function () {
-								_this.clearHighlight();
-
-								if (!prevCollapsed || moment(selectedWeek).format('ww') === moment().format('ww') && moment(selectedWeek).format('YYYY') === moment().format('YYYY')) {
-									_this.scrollToDate(selectedWeek, 0);
-								}
-
-								if (typeof afterSelect == 'function') {
-									afterSelect(selectedWeek);
-								}
-							});
-						})();
+				if (!beforeSelect || typeof beforeSelect == 'function' && beforeSelect(selectedWeek)) {
+					if (typeof onSelect == 'function') {
+						onSelect(selectedWeek, e);
 					}
-				})();
+
+					_this.setState({
+						isCollapsed: _this.state.desktop
+					});
+
+					_this.setState({
+						selectedWeek: selectedWeek,
+						selectedDate: null,
+						isClickOnDatepicker: true
+					}, function () {
+						_this.clearHighlight();
+
+						if (selectedWeek) {
+							_this.scrollToDate(selectedWeek, 0);
+						}
+
+						if (typeof afterSelect == 'function') {
+							afterSelect(selectedWeek);
+						}
+					});
+				}
 			}
 		};
 
@@ -164,20 +150,19 @@ var InfiniteCalendar = function (_Component) {
 		};
 
 		_this.scrollToDate = function () {
-			var date = arguments.length <= 0 || arguments[0] === undefined ? moment() : arguments[0];
+			var date = arguments.length > 0 && arguments[0] !== undefined ? arguments[0] : moment();
 			var offset = arguments[1];
+			var forceScroll = arguments[2];
+			var animated = arguments[3];
 
+			// Scrolling must never change the collapsed/expanded state — collapsing
+			// is decided by the select handlers and handleClickOutside.
 			_this.setState({
 				isScrolling: false,
 				expandOnScroll: false
 			}, function () {
-				_this.list.scrollToDate(date, offset);
-
-				if (!_this.state.isCollapsed && _this.state.desktop) {
-					_this.setState({
-						isCollapsed: true,
-						expandOnScroll: true
-					});
+				if (_this.list) {
+					_this.list.scrollToDate(date, offset, forceScroll, animated);
 				}
 			});
 		};
@@ -185,6 +170,15 @@ var InfiniteCalendar = function (_Component) {
 		_this.handleExpansionClick = function () {
 			_this.setState({
 				isCollapsed: false
+			}, function () {
+				// Wait for the expansion before positioning, so the visibility check
+				// in List.scrollToDate sees the expanded viewport.
+				var targetDate = _this.state.selectedWeek || _this.state.selectedDate;
+				if (targetDate) {
+					setTimeout(function () {
+						_this.scrollToDate(targetDate, 0);
+					}, 50);
+				}
 			});
 		};
 
@@ -192,17 +186,17 @@ var InfiniteCalendar = function (_Component) {
 
 		_this.onScroll = function (_ref) {
 			var scrollTop = _ref.scrollTop;
-			var _this$props3 = _this.props;
-			var onScroll = _this$props3.onScroll;
-			var showOverlay = _this$props3.showOverlay;
-			var showTodayHelper = _this$props3.showTodayHelper;
-			var device = _this$props3.device;
-			var _this$state = _this.state;
-			var isScrolling = _this$state.isScrolling;
-			var isTouchStarted = _this$state.isTouchStarted;
-			var isScrollEnded = _this$state.isScrollEnded;
-			var isCollapsed = _this$state.isCollapsed;
-			var expandOnScroll = _this$state.expandOnScroll;
+			var _this$props3 = _this.props,
+			    onScroll = _this$props3.onScroll,
+			    showOverlay = _this$props3.showOverlay,
+			    showTodayHelper = _this$props3.showTodayHelper,
+			    device = _this$props3.device;
+			var _this$state = _this.state,
+			    isScrolling = _this$state.isScrolling,
+			    isTouchStarted = _this$state.isTouchStarted,
+			    isScrollEnded = _this$state.isScrollEnded,
+			    isCollapsed = _this$state.isCollapsed,
+			    expandOnScroll = _this$state.expandOnScroll;
 
 			var scrollSpeed = _this.scrollSpeed = Math.abs(_this.getScrollSpeed(scrollTop));
 			_this.scrollTop = scrollTop;
@@ -231,12 +225,12 @@ var InfiniteCalendar = function (_Component) {
 		};
 
 		_this.onScrollEnd = debounce(function () {
-			var _this$props4 = _this.props;
-			var onScrollEnd = _this$props4.onScrollEnd;
-			var showTodayHelper = _this$props4.showTodayHelper;
-			var _this$state2 = _this.state;
-			var isScrolling = _this$state2.isScrolling;
-			var isTouchStarted = _this$state2.isTouchStarted;
+			var _this$props4 = _this.props,
+			    onScrollEnd = _this$props4.onScrollEnd,
+			    showTodayHelper = _this$props4.showTodayHelper;
+			var _this$state2 = _this.state,
+			    isScrolling = _this$state2.isScrolling,
+			    isTouchStarted = _this$state2.isTouchStarted;
 
 
 			_this.setState({
@@ -278,10 +272,10 @@ var InfiniteCalendar = function (_Component) {
 
 			var scrollTop = _this.scrollTop;
 			var showToday = _this.state.showToday;
-			var _this$props5 = _this.props;
-			var height = _this$props5.height;
-			var rowHeight = _this$props5.rowHeight;
-			var todayHelperRowOffset = _this$props5.todayHelperRowOffset;
+			var _this$props5 = _this.props,
+			    height = _this$props5.height,
+			    rowHeight = _this$props5.rowHeight,
+			    todayHelperRowOffset = _this$props5.todayHelperRowOffset;
 
 			var newState = void 0;
 			var dayOffset = Math.ceil((date.date() - 7 + moment(date).startOf("month").day()) / 7) * rowHeight; //offset of "today" within its month
@@ -304,15 +298,15 @@ var InfiniteCalendar = function (_Component) {
 		};
 
 		_this.handleKeyDown = function (e) {
-			var _this$props6 = _this.props;
-			var maxDate = _this$props6.maxDate;
-			var minDate = _this$props6.minDate;
-			var onKeyDown = _this$props6.onKeyDown;
-			var _this$state3 = _this.state;
-			var display = _this$state3.display;
-			var selectedDate = _this$state3.selectedDate;
-			var highlightedDate = _this$state3.highlightedDate;
-			var showToday = _this$state3.showToday;
+			var _this$props6 = _this.props,
+			    maxDate = _this$props6.maxDate,
+			    minDate = _this$props6.minDate,
+			    onKeyDown = _this$props6.onKeyDown;
+			var _this$state3 = _this.state,
+			    display = _this$state3.display,
+			    selectedDate = _this$state3.selectedDate,
+			    highlightedDate = _this$state3.highlightedDate,
+			    showToday = _this$state3.showToday;
 
 			var delta = 0;
 
@@ -426,9 +420,9 @@ var InfiniteCalendar = function (_Component) {
 	babelHelpers.createClass(InfiniteCalendar, [{
 		key: 'componentDidMount',
 		value: function componentDidMount() {
-			var _props = this.props;
-			var autoFocus = _props.autoFocus;
-			var keyboardSupport = _props.keyboardSupport;
+			var _props = this.props,
+			    autoFocus = _props.autoFocus,
+			    keyboardSupport = _props.keyboardSupport;
 
 			this.node = this.refs.node;
 			this.list = this.refs.List;
@@ -436,27 +430,35 @@ var InfiniteCalendar = function (_Component) {
 			if (keyboardSupport && autoFocus) {
 				this.node.focus();
 			}
+
+			// Make sure the initial selection (day or week) is positioned in view.
+			// The List's initial scrollTop covers the common case; this is a no-op
+			// when the selection is already visible.
+			var targetDate = this.state.selectedWeek || this.state.selectedDate;
+			if (targetDate && this.list) {
+				this.scrollToDate(targetDate, 0, false, false);
+			}
 		}
 	}, {
 		key: 'componentWillReceiveProps',
 		value: function componentWillReceiveProps(next) {
-			var _props2 = this.props;
-			var min = _props2.min;
-			var minDate = _props2.minDate;
-			var max = _props2.max;
-			var maxDate = _props2.maxDate;
-			var locale = _props2.locale;
-			var _state = this.state;
-			var display = _state.display;
-			var isClickOnDatepicker = _state.isClickOnDatepicker;
-			var selectedWeek = _state.selectedWeek;
-			var selectedDate = _state.selectedDate;
+			var _props2 = this.props,
+			    min = _props2.min,
+			    minDate = _props2.minDate,
+			    max = _props2.max,
+			    maxDate = _props2.maxDate,
+			    locale = _props2.locale;
+			var _state = this.state,
+			    display = _state.display,
+			    isClickOnDatepicker = _state.isClickOnDatepicker,
+			    selectedWeek = _state.selectedWeek,
+			    selectedDate = _state.selectedDate;
 
 
 			var nextDate = this.parseSelectedDate(next.selectedDate);
-			var nextWeek = this.parseSelectedDate(next.selectedWeek);
+			var nextWeek = this.parseSelectedWeek(next.selectedWeek);
 			var stateDate = this.parseSelectedDate(selectedDate);
-			var stateWeek = this.parseSelectedDate(selectedWeek);
+			var stateWeek = this.parseSelectedWeek(selectedWeek);
 
 			this.setState({
 				collapsedHeight: next.collapsedHeight,
@@ -471,36 +473,28 @@ var InfiniteCalendar = function (_Component) {
 				this.updateYears(next);
 			}
 
-			if (next.selectedDate !== null && moment(nextDate).valueOf() !== stateDate) {
-				if (new Date(nextDate).getTime() > new Date(minDate.year + "-01-01").getTime() && new Date(nextDate).getTime() < new Date(maxDate.year + "-12-31").getTime()) {
-					this.setState({
-						selectedWeek: null,
-						selectedDate: nextDate
-					});
+			// parseSelectedDate/parseSelectedWeek clamp to _minDate/_maxDate, so a
+			// non-null result is always in range. Only react when the selection
+			// actually changed — the parent may re-render with identical props, and
+			// scrolling then would fight the user's own scrolling.
+			if (next.selectedDate !== null && nextDate && (!stateDate || !nextDate.isSame(stateDate, 'day'))) {
+				this.setState({
+					selectedWeek: null,
+					selectedDate: nextDate
+				});
 
-					this.setState({
-						isCollapsed: this.state.desktop
-					});
-
-					this.clearHighlight();
-					this.scrollToDate(nextDate, 0);
-				}
+				this.clearHighlight();
+				this.scrollToDate(nextDate, 0);
 			}
 
-			if (next.selectedWeek !== null && nextWeek !== stateWeek) {
-				if (new Date(nextWeek).getTime() > new Date(minDate.year + "-01-01").getTime() && new Date(nextWeek).getTime() < new Date(maxDate.year + "-12-31").getTime()) {
-					this.setState({
-						selectedWeek: nextWeek,
-						selectedDate: null
-					});
+			if (next.selectedWeek !== null && nextWeek && (!stateWeek || !nextWeek.isSame(stateWeek, 'week'))) {
+				this.setState({
+					selectedWeek: nextWeek,
+					selectedDate: null
+				});
 
-					this.setState({
-						isCollapsed: this.state.desktop
-					});
-
-					this.clearHighlight();
-					this.scrollToDate(nextWeek, 0);
-				}
+				this.clearHighlight();
+				this.scrollToDate(nextWeek, 0);
 			}
 
 			this.setState({
@@ -574,12 +568,26 @@ var InfiniteCalendar = function (_Component) {
 	}, {
 		key: 'updateYears',
 		value: function updateYears() {
-			var props = arguments.length <= 0 || arguments[0] === undefined ? this.props : arguments[0];
+			var props = arguments.length > 0 && arguments[0] !== undefined ? arguments[0] : this.props;
 
-			var min = this._min = moment(props.min);
-			var max = this._max = moment(props.max);
-			this._minDate = moment(props.minDate);
-			this._maxDate = moment(props.maxDate);
+			// min/max/minDate/maxDate may arrive as {year, month, day} objects (the
+			// defaults and what Wavy Business passes), moments, or anything moment
+			// can parse. Never go through new Date(string) — string parsing gives
+			// Invalid Date in Safari/WebKit for non-ISO formats.
+			var parseProp = function parseProp(value) {
+				if (!value) return moment();
+				if (moment.isMoment(value)) return value;
+				if (value.date && moment.isMoment(value.date)) return value.date;
+				if ((typeof value === 'undefined' ? 'undefined' : babelHelpers.typeof(value)) === 'object' && value.year !== undefined && value.month !== undefined) {
+					return moment(new Date(value.year, value.month, value.day || value.date || 1));
+				}
+				return moment(value);
+			};
+
+			var min = this._min = parseProp(props.min);
+			var max = this._max = parseProp(props.max);
+			this._minDate = parseProp(props.minDate);
+			this._maxDate = parseProp(props.maxDate);
 
 			this.years = range(min.year(), max.year() + 1).map(function (year) {
 				return getMonthsForYear(year, min, max);
@@ -603,14 +611,14 @@ var InfiniteCalendar = function (_Component) {
 	}, {
 		key: 'getLocale',
 		value: function getLocale() {
-			var customLocale = arguments.length <= 0 || arguments[0] === undefined ? this.props.locale : arguments[0];
+			var customLocale = arguments.length > 0 && arguments[0] !== undefined ? arguments[0] : this.props.locale;
 
 			return Object.assign({}, defaultLocale, customLocale);
 		}
 	}, {
 		key: 'getTheme',
 		value: function getTheme() {
-			var customTheme = arguments.length <= 0 || arguments[0] === undefined ? this.props.theme : arguments[0];
+			var customTheme = arguments.length > 0 && arguments[0] !== undefined ? arguments[0] : this.props.theme;
 
 			return Object.assign({}, defaultTheme, customTheme);
 		}
@@ -625,41 +633,41 @@ var InfiniteCalendar = function (_Component) {
 	}, {
 		key: 'render',
 		value: function render() {
-			var _props3 = this.props;
-			var className = _props3.className;
-			var disabledDays = _props3.disabledDays;
-			var hideYearsOnSelect = _props3.hideYearsOnSelect;
-			var hideYearsOnDate = _props3.hideYearsOnDate;
-			var keyboardSupport = _props3.keyboardSupport;
-			var layout = _props3.layout;
-			var overscanMonthCount = _props3.overscanMonthCount;
-			var min = _props3.min;
-			var minDate = _props3.minDate;
-			var max = _props3.max;
-			var maxDate = _props3.maxDate;
-			var showTodayHelper = _props3.showTodayHelper;
-			var showHeader = _props3.showHeader;
-			var tabIndex = _props3.tabIndex;
-			var width = _props3.width;
-			var showSelectionText = _props3.showSelectionText;
-			var device = _props3.device;
-			var desktop = _props3.desktop;
-			var other = babelHelpers.objectWithoutProperties(_props3, ['className', 'disabledDays', 'hideYearsOnSelect', 'hideYearsOnDate', 'keyboardSupport', 'layout', 'overscanMonthCount', 'min', 'minDate', 'max', 'maxDate', 'showTodayHelper', 'showHeader', 'tabIndex', 'width', 'showSelectionText', 'device', 'desktop']);
+			var _props3 = this.props,
+			    className = _props3.className,
+			    disabledDays = _props3.disabledDays,
+			    hideYearsOnSelect = _props3.hideYearsOnSelect,
+			    hideYearsOnDate = _props3.hideYearsOnDate,
+			    keyboardSupport = _props3.keyboardSupport,
+			    layout = _props3.layout,
+			    overscanMonthCount = _props3.overscanMonthCount,
+			    min = _props3.min,
+			    minDate = _props3.minDate,
+			    max = _props3.max,
+			    maxDate = _props3.maxDate,
+			    showTodayHelper = _props3.showTodayHelper,
+			    showHeader = _props3.showHeader,
+			    tabIndex = _props3.tabIndex,
+			    width = _props3.width,
+			    showSelectionText = _props3.showSelectionText,
+			    device = _props3.device,
+			    desktop = _props3.desktop,
+			    other = babelHelpers.objectWithoutProperties(_props3, ['className', 'disabledDays', 'hideYearsOnSelect', 'hideYearsOnDate', 'keyboardSupport', 'layout', 'overscanMonthCount', 'min', 'minDate', 'max', 'maxDate', 'showTodayHelper', 'showHeader', 'tabIndex', 'width', 'showSelectionText', 'device', 'desktop']);
 
 			var disabledDates = this.getDisabledDates(this.props.disabledDates);
 			var locale = this.getLocale();
 			var theme = this.getTheme();
-			var _state2 = this.state;
-			var display = _state2.display;
-			var isScrolling = _state2.isScrolling;
-			var isCollapsed = _state2.isCollapsed;
-			var collapsedHeight = _state2.collapsedHeight;
-			var expandedHeight = _state2.expandedHeight;
-			var selectedDate = _state2.selectedDate;
-			var selectedWeek = _state2.selectedWeek;
-			var height = _state2.height;
-			var showToday = _state2.showToday;
-			var shouldHeaderAnimate = _state2.shouldHeaderAnimate;
+			var _state2 = this.state,
+			    display = _state2.display,
+			    isScrolling = _state2.isScrolling,
+			    isCollapsed = _state2.isCollapsed,
+			    collapsedHeight = _state2.collapsedHeight,
+			    expandedHeight = _state2.expandedHeight,
+			    selectedDate = _state2.selectedDate,
+			    selectedWeek = _state2.selectedWeek,
+			    height = _state2.height,
+			    showToday = _state2.showToday,
+			    shouldHeaderAnimate = _state2.shouldHeaderAnimate;
 
 			var today = this.today = parseDate(moment());
 

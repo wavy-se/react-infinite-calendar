@@ -46,7 +46,7 @@ var Shortcuts = function (_Component) {
 	_inherits(Shortcuts, _Component);
 
 	function Shortcuts() {
-		var _Object$getPrototypeO;
+		var _ref;
 
 		var _temp, _this, _ret;
 
@@ -56,19 +56,20 @@ var Shortcuts = function (_Component) {
 			args[_key] = arguments[_key];
 		}
 
-		return _ret = (_temp = (_this = _possibleConstructorReturn(this, (_Object$getPrototypeO = Object.getPrototypeOf(Shortcuts)).call.apply(_Object$getPrototypeO, [this].concat(args))), _this), _this.handleTodayClick = function () {
+		return _ret = (_temp = (_this = _possibleConstructorReturn(this, (_ref = Shortcuts.__proto__ || Object.getPrototypeOf(Shortcuts)).call.apply(_ref, [this].concat(args))), _this), _this.handleTodayClick = function () {
 			var handleTodayClick = _this.props.handleTodayClick;
 
 
 			handleTodayClick((0, _moment2.default)());
 		}, _this.handleJumpClick = function (distance) {
-			var _this$props = _this.props;
-			var scrollToDate = _this$props.scrollToDate;
-			var handleTodayClick = _this$props.handleTodayClick;
+			var _this$props = _this.props,
+			    scrollToDate = _this$props.scrollToDate,
+			    handleTodayClick = _this$props.handleTodayClick;
 
 
 			handleTodayClick((0, _moment2.default)().add(distance, 'weeks'));
-			scrollToDate((0, _moment2.default)().add(distance, 'weeks'), 0);
+			// forceScroll: center the target even if it is already visible.
+			scrollToDate((0, _moment2.default)().add(distance, 'weeks'), 0, true, true);
 		}, _temp), _possibleConstructorReturn(_this, _ret);
 	}
 
@@ -82,9 +83,9 @@ var Shortcuts = function (_Component) {
 		value: function render() {
 			var _this2 = this;
 
-			var _props = this.props;
-			var theme = _props.theme;
-			var locale = _props.locale;
+			var _props = this.props,
+			    theme = _props.theme,
+			    locale = _props.locale;
 
 
 			return _react2.default.createElement(
