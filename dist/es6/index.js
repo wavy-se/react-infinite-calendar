@@ -177,12 +177,18 @@ var InfiniteCalendar = function (_Component) {
 					_this.list.scrollToDate(date, offset, forceScroll, animated);
 				}
 
-				if (!_this.state.isCollapsed && _this.state.desktop) {
+				// Kollapsa INTE här: expansionsklicket och prop-navigeringen
+				// (componentWillReceiveProps) går båda via scrollToDate, och en
+				// auto-kollaps gjorde expansionen självstängande. Alla flöden som
+				// ska kollapsa (dag-/veckoval, klick utanför) gör det explicit.
+				// Återställ bara expandOnScroll när den programmatiska scrollen
+				// hunnit bli klar, så scroll-expandering av kollapsad picker
+				// fortsätter fungera utan att triggas av vår egen scroll.
+				setTimeout(function () {
 					_this.setState({
-						isCollapsed: true,
 						expandOnScroll: true
 					});
-				}
+				}, 500);
 			});
 		};
 
