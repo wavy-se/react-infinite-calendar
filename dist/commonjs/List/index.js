@@ -45,7 +45,7 @@ var List = function (_Component) {
 	_inherits(List, _Component);
 
 	function List() {
-		var _ref;
+		var _Object$getPrototypeO;
 
 		var _temp, _this, _ret;
 
@@ -55,20 +55,20 @@ var List = function (_Component) {
 			args[_key] = arguments[_key];
 		}
 
-		return _ret = (_temp = (_this = _possibleConstructorReturn(this, (_ref = List.__proto__ || Object.getPrototypeOf(List)).call.apply(_ref, [this].concat(args))), _this), _this.cache = {}, _this.state = {}, _this.memoize = function (param) {
+		return _ret = (_temp = (_this = _possibleConstructorReturn(this, (_Object$getPrototypeO = Object.getPrototypeOf(List)).call.apply(_Object$getPrototypeO, [this].concat(args))), _this), _this.cache = {}, _this.state = {}, _this.memoize = function (param) {
 			if (!this.cache[param]) {
 				var result = (0, _utils.getMonth)(param); //custom function
 				this.cache[param] = result;
 			}
 			return this.cache[param];
-		}, _this.monthHeights = [], _this.getMonthHeight = function (_ref2) {
-			var index = _ref2.index;
+		}, _this.monthHeights = [], _this.getMonthHeight = function (_ref) {
+			var index = _ref.index;
 
 			if (!_this.monthHeights[index]) {
-				var _this$props = _this.props,
-				    locale = _this$props.locale,
-				    months = _this$props.months,
-				    rowHeight = _this$props.rowHeight;
+				var _this$props = _this.props;
+				var locale = _this$props.locale;
+				var months = _this$props.months;
+				var rowHeight = _this$props.rowHeight;
 
 				var date = months[index];
 				var weeks = (0, _utils.getWeeksInMonth)(date, locale);
@@ -82,21 +82,15 @@ var List = function (_Component) {
 			var index = date.diff(min, 'months');
 
 			return index;
-		}, _this.normalizeDate = function (date) {
-			// Accepts a parsed {date, yyyymmdd} object, a moment, or anything moment
-			// can parse (Date, ISO string). Returns a moment or null.
-			if (!date) return null;
-			if (date.date && _moment2.default.isMoment(date.date)) return date.date;
-			if (_moment2.default.isMoment(date)) return date;
-			return (0, _moment2.default)(date);
 		}, _this.getDateOffset = function (date) {
-			var _this$props2 = _this.props,
-			    min = _this$props2.min,
-			    rowHeight = _this$props2.rowHeight;
+			if (date && date.date && (_moment2.default.isMoment(date.date) || date.date._isAMomentObject)) date = date.date;
+			if (!date || (!_moment2.default.isMoment(date) && !date._isAMomentObject)) date = (0, _moment2.default)(date);
+			var _this$props2 = _this.props;
+			var min = _this$props2.min;
+			var rowHeight = _this$props2.rowHeight;
 
-			var dateMoment = _this.normalizeDate(date) || (0, _moment2.default)();
-			var minMoment = _this.normalizeDate(min) || (0, _moment2.default)();
-			var weeks = dateMoment.clone().startOf('week').diff(minMoment.clone().startOf('month'), 'weeks');
+			var minMom = (min && min.date && (_moment2.default.isMoment(min.date) || min.date._isAMomentObject)) ? min.date : (min && (_moment2.default.isMoment(min) || min._isAMomentObject)) ? min : (min && min.year) ? (0, _moment2.default)(new Date(min.year, min.month, min.day || 1)) : (0, _moment2.default)(min);
+			var weeks = date.clone().startOf('week').diff(minMom.clone().startOf('month'), 'weeks');
 
 			return weeks * rowHeight + rowHeight;
 		}, _this.getCurrentOffset = function () {
@@ -105,70 +99,82 @@ var List = function (_Component) {
 			}
 		}, _this.isDateVisible = function (date) {
 			if (!_this.scrollEl) return false;
-			var _this$props3 = _this.props,
-			    height = _this$props3.height,
-			    rowHeight = _this$props3.rowHeight;
-			// clientHeight can report ~0 while the picker is collapsed (the outer
-			// container clips with overflow: hidden) — fall back to the expanded
-			// height so the visibility check reflects what an expanded picker shows.
-
-			var containerHeight = _this.scrollEl.clientHeight;
-			if (!containerHeight || containerHeight < 100) containerHeight = height || 270;
-			var targetOffset = _this.getDateOffset(date);
 			var currentScrollTop = _this.scrollEl.scrollTop;
+			var containerHeight = _this.scrollEl.clientHeight || _this.props.height || 270;
+			if (containerHeight < 100) containerHeight = 270;
+			var targetOffset = _this.getDateOffset(date);
+			var rowHeight = _this.props.rowHeight || 40;
+
 			var isAbove = targetOffset < currentScrollTop;
-			var isBelow = targetOffset + (rowHeight || 40) > currentScrollTop + containerHeight;
+			var isBelow = (targetOffset + rowHeight) > (currentScrollTop + containerHeight);
 
 			return !isAbove && !isBelow;
 		}, _this.scrollToDate = function (date) {
-			var offset = arguments.length > 1 && arguments[1] !== undefined ? arguments[1] : 0;
-			var forceScroll = arguments.length > 2 && arguments[2] !== undefined ? arguments[2] : false;
-			var animated = arguments.length > 3 && arguments[3] !== undefined ? arguments[3] : true;
+			var offset = arguments.length <= 1 || arguments[1] === undefined ? 0 : arguments[1];
+			var forceScroll = arguments.length <= 2 || arguments[2] === undefined ? false : arguments[2];
+			var animated = arguments.length <= 3 || arguments[3] === undefined ? true : arguments[3];
 
 			if (!date) return;
-			var offsetTop = _this.getDateOffset(date);
+			var targetOffsetTop = _this.getDateOffset(date) + offset;
 
-			// Already in view: leave the scroll position alone so selecting an
-			// adjacent visible week/day only moves the selection indicator.
-			if (!forceScroll && _this.isDateVisible(date)) return;
+			if (!forceScroll && _this.isDateVisible(date)) {
+				return;
+			}
 
-			_this.scrollTo(offsetTop + offset, animated);
+			_this._initScrollTop = targetOffsetTop;
+
+			if (animated && _this.scrollEl && typeof _this.scrollEl.scrollTo === 'function') {
+				_this.scrollEl.scrollTo({
+					top: targetOffsetTop,
+					behavior: 'smooth'
+				});
+			} else {
+				if (_this.refs.VirtualScroll && typeof _this.refs.VirtualScroll.scrollToPosition === 'function') {
+					_this.refs.VirtualScroll.scrollToPosition(targetOffsetTop);
+				}
+				_this.scrollTo(targetOffsetTop, false);
+			}
 		}, _this.scrollTo = function () {
-			var scrollTop = arguments.length > 0 && arguments[0] !== undefined ? arguments[0] : 0;
-			var animated = arguments.length > 1 && arguments[1] !== undefined ? arguments[1] : false;
+			var scrollTop = arguments.length <= 0 || arguments[0] === undefined ? 0 : arguments[0];
+			var animated = arguments.length <= 1 || arguments[1] === undefined ? false : arguments[1];
 
 			if (_this.scrollEl) {
 				if (animated && typeof _this.scrollEl.scrollTo === 'function') {
-					_this.scrollEl.scrollTo({ top: scrollTop, behavior: 'smooth' });
+					_this.scrollEl.scrollTo({
+						top: scrollTop,
+						behavior: 'smooth'
+					});
 				} else {
 					_this.scrollEl.scrollTop = scrollTop;
 				}
 			}
-		}, _this.renderMonth = function (_ref3) {
-			var index = _ref3.index,
-			    isScrolling = _ref3.isScrolling;
-			var _this$props4 = _this.props,
-			    disabledDates = _this$props4.disabledDates,
-			    disabledDays = _this$props4.disabledDays,
-			    locale = _this$props4.locale,
-			    months = _this$props4.months,
-			    maxDate = _this$props4.maxDate,
-			    minDate = _this$props4.minDate,
-			    onDaySelect = _this$props4.onDaySelect,
-			    onWeekSelect = _this$props4.onWeekSelect,
-			    rowHeight = _this$props4.rowHeight,
-			    selectedDate = _this$props4.selectedDate,
-			    selectedWeek = _this$props4.selectedWeek,
-			    showOverlay = _this$props4.showOverlay,
-			    theme = _this$props4.theme,
-			    today = _this$props4.today,
-			    showSelectionText = _this$props4.showSelectionText,
-			    hideYearsOnDate = _this$props4.hideYearsOnDate;
+		}, _this.renderMonth = function (_ref2) {
+			var index = _ref2.index;
+			var isScrolling = _ref2.isScrolling;
+			var _this$props3 = _this.props;
+			var disabledDates = _this$props3.disabledDates;
+			var disabledDays = _this$props3.disabledDays;
+			var locale = _this$props3.locale;
+			var months = _this$props3.months;
+			var maxDate = _this$props3.maxDate;
+			var minDate = _this$props3.minDate;
+			var onDaySelect = _this$props3.onDaySelect;
+			var onWeekSelect = _this$props3.onWeekSelect;
+			var rowHeight = _this$props3.rowHeight;
+			var selectedDate = _this$props3.selectedDate;
+			var selectedWeek = _this$props3.selectedWeek;
+			var showOverlay = _this$props3.showOverlay;
+			var theme = _this$props3.theme;
+			var today = _this$props3.today;
+			var showSelectionText = _this$props3.showSelectionText;
+			var hideYearsOnDate = _this$props3.hideYearsOnDate;
 
-			var _this$memoize = _this.memoize(months[index]),
-			    date = _this$memoize.date,
-			    rows = _this$memoize.rows,
-			    weeks = _this$memoize.weeks;
+			var _this$memoize = _this.memoize(months[index]);
+
+			var date = _this$memoize.date;
+			var rows = _this$memoize.rows;
+			var weeks = _this$memoize.weeks;
+
 
 			return _react2.default.createElement(_Month2.default, {
 				key: 'Month-' + index,
@@ -203,26 +209,32 @@ var List = function (_Component) {
 			this.scrollEl = grid && grid._scrollingContainer;
 		}
 	}, {
+		key: 'componentWillReceiveProps',
+		value: function componentWillReceiveProps(nextProps) {
+			var selectedDate = nextProps.selectedDate;
+			var selectedWeek = nextProps.selectedWeek;
+			var targetDate = (selectedDate && selectedDate.date) || (selectedWeek && selectedWeek.date) || (selectedWeek && (_moment2.default.isMoment(selectedWeek) || selectedWeek._isAMomentObject) ? selectedWeek : null) || (selectedWeek ? (0, _moment2.default)(selectedWeek) : null) || (selectedDate ? (0, _moment2.default)(selectedDate) : null);
+			if (targetDate) {
+				this.scrollToDate(targetDate, 0);
+			}
+		}
+	}, {
 		key: 'render',
 		value: function render() {
-			var _props = this.props,
-			    height = _props.height,
-			    isScrolling = _props.isScrolling,
-			    onScroll = _props.onScroll,
-			    overscanMonthCount = _props.overscanMonthCount,
-			    months = _props.months,
-			    rowHeight = _props.rowHeight,
-			    selectedDate = _props.selectedDate,
-			    selectedWeek = _props.selectedWeek,
-			    today = _props.today,
-			    width = _props.width;
-			// Initial scroll position only — the scrollTop prop must stay constant
-			// after mount so VirtualScroll doesn't snap while scrollToDate animates.
+			var _props = this.props;
+			var height = _props.height;
+			var isScrolling = _props.isScrolling;
+			var onScroll = _props.onScroll;
+			var overscanMonthCount = _props.overscanMonthCount;
+			var months = _props.months;
+			var rowHeight = _props.rowHeight;
+			var selectedDate = _props.selectedDate;
+			var selectedWeek = _props.selectedWeek;
+			var today = _props.today;
+			var width = _props.width;
 
-			if (!this._initScrollTop) {
-				var target = selectedDate && selectedDate.date || selectedWeek && selectedWeek.date || today.date;
-				this._initScrollTop = this.getDateOffset(target);
-			}
+			var targetDate = (selectedDate && selectedDate.date) || (selectedWeek && selectedWeek.date) || (selectedWeek && (_moment2.default.isMoment(selectedWeek) || selectedWeek._isAMomentObject) ? selectedWeek : null) || (selectedWeek ? (0, _moment2.default)(selectedWeek) : null) || (selectedDate ? (0, _moment2.default)(selectedDate) : null) || today.date;
+			this._initScrollTop = this.getDateOffset(targetDate);
 			if (typeof width == 'string' && width.indexOf('%') !== -1) {
 				width = window.innerWidth * parseInt(width.replace('%', ''), 10) / 100; // See https://github.com/bvaughn/react-virtualized/issues/229
 			}

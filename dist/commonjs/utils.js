@@ -161,6 +161,9 @@ function getScrollSpeed(settings) {
 
 function parseDate(date) {
 				if (date) {
+								// Redan parsad ({date: moment, yyyymmdd}) - returnera som den är
+								// istallet for att wrappa om till Invalid Date (fix #1443).
+								if (date.date && (date.date._isAMomentObject || _moment2.default.isMoment(date.date)) && date.yyyymmdd) return date;
 								if (!date._isAMomentObject) date = (0, _moment2.default)(date);
 
 								return {
