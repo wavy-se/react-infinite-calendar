@@ -234,7 +234,11 @@ var List = function (_Component) {
 			var width = _props.width;
 
 			var targetDate = (selectedDate && selectedDate.date) || (selectedWeek && selectedWeek.date) || (selectedWeek && (_moment2.default.isMoment(selectedWeek) || selectedWeek._isAMomentObject) ? selectedWeek : null) || (selectedWeek ? (0, _moment2.default)(selectedWeek) : null) || (selectedDate ? (0, _moment2.default)(selectedDate) : null) || today.date;
-			this._initScrollTop = this.getDateOffset(targetDate);
+			// Sätt bara initialt (namnet säger det): som kontrollerad prop på
+			// varje render tvångsscrollar VirtualScroll till valda datumet vid
+			// varje omrendering och kringgår scrollToDates isDateVisible-villkor.
+			// Efterföljande scroll sköts av scrollToDate (villkorlig + mjuk).
+			if (this._initScrollTop == null) this._initScrollTop = this.getDateOffset(targetDate);
 			if (typeof width == 'string' && width.indexOf('%') !== -1) {
 				width = window.innerWidth * parseInt(width.replace('%', ''), 10) / 100; // See https://github.com/bvaughn/react-virtualized/issues/229
 			}
