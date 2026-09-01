@@ -29,7 +29,8 @@ export default class Shortcuts extends Component {
 		let {scrollToDate, handleTodayClick} = this.props;
 		
 		handleTodayClick(moment().add(distance, 'weeks'));
-		scrollToDate(moment().add(distance, 'weeks'), 0);
+		// forceScroll: center the target even if it is already visible.
+		scrollToDate(moment().add(distance, 'weeks'), 0, true, true);
 	};
 
 	render() {

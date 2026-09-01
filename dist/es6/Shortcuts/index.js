@@ -14,7 +14,7 @@ var Shortcuts = function (_Component) {
 	babelHelpers.inherits(Shortcuts, _Component);
 
 	function Shortcuts() {
-		var _ref;
+		var _Object$getPrototypeO;
 
 		var _temp, _this, _ret;
 
@@ -24,7 +24,7 @@ var Shortcuts = function (_Component) {
 			args[_key] = arguments[_key];
 		}
 
-		return _ret = (_temp = (_this = babelHelpers.possibleConstructorReturn(this, (_ref = Shortcuts.__proto__ || Object.getPrototypeOf(Shortcuts)).call.apply(_ref, [this].concat(args))), _this), _this.handleTodayClick = function () {
+		return _ret = (_temp = (_this = babelHelpers.possibleConstructorReturn(this, (_Object$getPrototypeO = Object.getPrototypeOf(Shortcuts)).call.apply(_Object$getPrototypeO, [this].concat(args))), _this), _this.handleTodayClick = function () {
 			var handleTodayClick = _this.props.handleTodayClick;
 
 
@@ -36,7 +36,7 @@ var Shortcuts = function (_Component) {
 
 
 			handleTodayClick(moment().add(distance, 'weeks'));
-			scrollToDate(moment().add(distance, 'weeks'), 0);
+			scrollToDate(moment().add(distance, 'weeks'), 0, true, true);
 		}, _temp), babelHelpers.possibleConstructorReturn(_this, _ret);
 	}
 

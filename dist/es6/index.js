@@ -57,8 +57,10 @@ var InfiniteCalendar = function (_Component) {
 	function InfiniteCalendar(props) {
 		babelHelpers.classCallCheck(this, InfiniteCalendar);
 
+
 		// Initialize
-		var _this = babelHelpers.possibleConstructorReturn(this, (InfiniteCalendar.__proto__ || Object.getPrototypeOf(InfiniteCalendar)).call(this));
+
+		var _this = babelHelpers.possibleConstructorReturn(this, Object.getPrototypeOf(InfiniteCalendar).call(this));
 
 		_this.onDaySelect = function (selectedDate, e) {
 			var shouldHeaderAnimate = arguments.length <= 2 || arguments[2] === undefined ? _this.props.shouldHeaderAnimate : arguments[2];
@@ -84,13 +86,16 @@ var InfiniteCalendar = function (_Component) {
 							var prevCollapsed = _this.state.isCollapsed;
 
 							_this.setState({
+								isCollapsed: _this.state.desktop
+							});
+
+							_this.setState({
 								selectedDate: selectedDate,
-								selectedWeek: null,
-								isCollapsed: true
+								selectedWeek: null
 							}, function () {
 								_this.clearHighlight();
 
-								if (!prevCollapsed || moment(selectedDate).format('YYYYMMDD') === moment().format('YYYYMMDD')) {
+								if (selectedDate) {
 									_this.scrollToDate(selectedDate, 0);
 								}
 
@@ -122,14 +127,17 @@ var InfiniteCalendar = function (_Component) {
 							var prevCollapsed = _this.state.isCollapsed;
 
 							_this.setState({
+								isCollapsed: _this.state.desktop
+							});
+
+							_this.setState({
 								selectedWeek: selectedWeek,
 								selectedDate: null,
-								isCollapsed: true,
 								isClickOnDatepicker: true
 							}, function () {
 								_this.clearHighlight();
 
-								if (!prevCollapsed || moment(selectedWeek).format('ww') === moment().format('ww') && moment(selectedWeek).format('YYYY') === moment().format('YYYY')) {
+								if (selectedWeek) {
 									_this.scrollToDate(selectedWeek, 0);
 								}
 
@@ -158,25 +166,42 @@ var InfiniteCalendar = function (_Component) {
 		_this.scrollToDate = function () {
 			var date = arguments.length <= 0 || arguments[0] === undefined ? moment() : arguments[0];
 			var offset = arguments[1];
+			var forceScroll = arguments[2];
+			var animated = arguments[3];
 
 			_this.setState({
 				isScrolling: false,
 				expandOnScroll: false
 			}, function () {
-				_this.list.scrollToDate(date, offset);
+				if (_this.list) {
+					_this.list.scrollToDate(date, offset, forceScroll, animated);
+				}
 
-				if (!_this.state.isCollapsed) {
+				// Kollapsa INTE här: expansionsklicket och prop-navigeringen
+				// (componentWillReceiveProps) går båda via scrollToDate, och en
+				// auto-kollaps gjorde expansionen självstängande. Alla flöden som
+				// ska kollapsa (dag-/veckoval, klick utanför) gör det explicit.
+				// Återställ bara expandOnScroll när den programmatiska scrollen
+				// hunnit bli klar, så scroll-expandering av kollapsad picker
+				// fortsätter fungera utan att triggas av vår egen scroll.
+				setTimeout(function () {
 					_this.setState({
-						isCollapsed: true,
 						expandOnScroll: true
 					});
-				}
+				}, 500);
 			});
 		};
 
 		_this.handleExpansionClick = function () {
 			_this.setState({
 				isCollapsed: false
+			}, function () {
+				var targetDate = _this.state.selectedWeek || _this.state.selectedDate;
+				if (targetDate) {
+					setTimeout(function () {
+						_this.scrollToDate(targetDate, 0);
+					}, 50);
+				}
 			});
 		};
 
@@ -408,7 +433,9 @@ var InfiniteCalendar = function (_Component) {
 			display: props.display,
 			shouldHeaderAnimate: props.shouldHeaderAnimate,
 			isCollapsed: props.isCollapsed,
-			expandOnScroll: false
+			expandOnScroll: false,
+			desktop: props.desktop,
+			device: props.device
 		};
 		return _this;
 	}
@@ -425,6 +452,11 @@ var InfiniteCalendar = function (_Component) {
 
 			if (keyboardSupport && autoFocus) {
 				this.node.focus();
+			}
+
+			var targetDate = this.state.selectedWeek || this.state.selectedDate;
+			if (targetDate && this.list) {
+				this.scrollToDate(targetDate, 0);
 			}
 		}
 	}, {
@@ -461,13 +493,12 @@ var InfiniteCalendar = function (_Component) {
 				this.updateYears(next);
 			}
 
-			if (next.selectedDate !== null && moment(nextDate).valueOf() !== stateDate) {
-
-				if (new Date(nextDate).getTime() > new Date(minDate.year + "-01-01").getTime() && new Date(nextDate).getTime() < new Date(maxDate.year + "-12-31").getTime()) {
+			if (next.selectedDate !== null) {
+				var nextDateTime = nextDate ? (nextDate.toDate ? nextDate.toDate().getTime() : new Date(nextDate).getTime()) : 0;
+				if (nextDateTime > new Date(minDate.year + "-01-01").getTime() && nextDateTime < new Date(maxDate.year + "-12-31").getTime()) {
 					this.setState({
 						selectedWeek: null,
-						selectedDate: nextDate,
-						isCollapsed: true
+						selectedDate: nextDate
 					});
 
 					this.clearHighlight();
@@ -475,12 +506,12 @@ var InfiniteCalendar = function (_Component) {
 				}
 			}
 
-			if (next.selectedWeek !== null && nextWeek !== stateWeek) {
-				if (new Date(nextWeek).getTime() > new Date(minDate.year + "-01-01").getTime() && new Date(nextWeek).getTime() < new Date(maxDate.year + "-12-31").getTime()) {
+			if (next.selectedWeek !== null) {
+				var nextWeekTime = nextWeek ? (nextWeek.toDate ? nextWeek.toDate().getTime() : new Date(nextWeek).getTime()) : 0;
+				if (nextWeekTime > new Date(minDate.year + "-01-01").getTime() && nextWeekTime < new Date(maxDate.year + "-12-31").getTime()) {
 					this.setState({
 						selectedWeek: nextWeek,
-						selectedDate: null,
-						isCollapsed: true
+						selectedDate: null
 					});
 
 					this.clearHighlight();
@@ -510,7 +541,7 @@ var InfiniteCalendar = function (_Component) {
 		value: function handleClickOutside(evt) {
 			var _this2 = this;
 
-			if (!this.state.isCollapsed) {
+			if (!this.state.isCollapsed && this.state.desktop) {
 				this.setState({
 					isCollapsed: true
 				}, function () {
@@ -561,10 +592,18 @@ var InfiniteCalendar = function (_Component) {
 		value: function updateYears() {
 			var props = arguments.length <= 0 || arguments[0] === undefined ? this.props : arguments[0];
 
-			var min = this._min = moment(props.min);
-			var max = this._max = moment(props.max);
-			this._minDate = moment(props.minDate);
-			this._maxDate = moment(props.maxDate);
+			function parseProp(d) {
+				if (!d) return moment();
+				if (d.year && d.month !== undefined) return moment(new Date(d.year, d.month, d.day || d.date || 1));
+				if (d.date && (moment.isMoment(d.date) || d.date._isAMomentObject)) return d.date;
+				if (moment.isMoment(d) || d._isAMomentObject) return d;
+				return moment(d);
+			}
+
+			var min = this._min = parseProp(props.min);
+			var max = this._max = parseProp(props.max);
+			this._minDate = parseProp(props.minDate);
+			this._maxDate = parseProp(props.maxDate);
 
 			this.years = range(min.year(), max.year() + 1).map(function (year) {
 				return getMonthsForYear(year, min, max);
@@ -628,7 +667,8 @@ var InfiniteCalendar = function (_Component) {
 			var width = _props3.width;
 			var showSelectionText = _props3.showSelectionText;
 			var device = _props3.device;
-			var other = babelHelpers.objectWithoutProperties(_props3, ['className', 'disabledDays', 'hideYearsOnSelect', 'hideYearsOnDate', 'keyboardSupport', 'layout', 'overscanMonthCount', 'min', 'minDate', 'max', 'maxDate', 'showTodayHelper', 'showHeader', 'tabIndex', 'width', 'showSelectionText', 'device']);
+			var desktop = _props3.desktop;
+			var other = babelHelpers.objectWithoutProperties(_props3, ['className', 'disabledDays', 'hideYearsOnSelect', 'hideYearsOnDate', 'keyboardSupport', 'layout', 'overscanMonthCount', 'min', 'minDate', 'max', 'maxDate', 'showTodayHelper', 'showHeader', 'tabIndex', 'width', 'showSelectionText', 'device', 'desktop']);
 
 			var disabledDates = this.getDisabledDates(this.props.disabledDates);
 			var locale = this.getLocale();
@@ -661,7 +701,7 @@ var InfiniteCalendar = function (_Component) {
 					style: { color: theme.textColor.default, width: '100%', overflow: isCollapsed ? 'hidden' : 'visible', height: collapsedHeight + "px" },
 					'aria-label': 'Calendar', ref: 'node'
 				},
-				React.createElement('div', {
+				desktop && React.createElement('div', {
 					className: classNames(style.expansionButton.root, 'ion-chevron-down'),
 					style: { display: isCollapsed ? 'initial' : 'none' },
 					onClick: this.handleExpansionClick
@@ -763,7 +803,8 @@ InfiniteCalendar.defaultProps = {
 	hideYearsOnDate: true,
 	showSelectionText: true,
 	isClickOnDatepicker: false,
-	device: true
+	device: true,
+	desktop: true
 };
 InfiniteCalendar.propTypes = {
 	selectedDate: validDate,
@@ -803,7 +844,8 @@ InfiniteCalendar.propTypes = {
 	showHeader: PropTypes.bool,
 	showSelectionText: PropTypes.bool,
 	isClickOnDatepicker: PropTypes.bool,
-	device: PropTypes.bool
+	device: PropTypes.bool,
+	desktop: PropTypes.bool
 };
 ;
 

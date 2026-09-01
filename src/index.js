@@ -22,7 +22,7 @@ const style = {
 	container: containerStyle,
 	day: dayStyle,
 	week: weekStyle,
-	expansionButton: expansionButtonStyle
+	expansionButton: expansionButtonStyle,
 };
 
 class InfiniteCalendar extends Component {
@@ -42,6 +42,8 @@ class InfiniteCalendar extends Component {
 			shouldHeaderAnimate: props.shouldHeaderAnimate,
 			isCollapsed: props.isCollapsed,
 			expandOnScroll: false,
+			desktop: props.desktop,
+			device: props.device,
 		};
 	}
 
@@ -75,6 +77,7 @@ class InfiniteCalendar extends Component {
 		showSelectionText: true,
 		isClickOnDatepicker: false,
 		device: true,
+		desktop: true,
 	};
 
 	static propTypes = {
@@ -116,6 +119,7 @@ class InfiniteCalendar extends Component {
 		showSelectionText: PropTypes.bool,
 		isClickOnDatepicker: PropTypes.bool,
 		device: PropTypes.bool,
+		desktop: PropTypes.bool,
 	};
 
 	componentDidMount() {
@@ -126,6 +130,14 @@ class InfiniteCalendar extends Component {
 		if (keyboardSupport && autoFocus) {
 			this.node.focus();
 		}
+
+		// Make sure the initial selection (day or week) is positioned in view.
+		// The List's initial scrollTop covers the common case; this is a no-op
+		// when the selection is already visible.
+		let targetDate = this.state.selectedWeek || this.state.selectedDate;
+		if (targetDate && this.list) {
+			this.scrollToDate(targetDate, 0, false, false);
+		}
 	}
 
 	componentWillReceiveProps(next) {
@@ -133,9 +145,9 @@ class InfiniteCalendar extends Component {
 		let {display, isClickOnDatepicker, selectedWeek, selectedDate} = this.state;
 
 		const nextDate = this.parseSelectedDate(next.selectedDate);
-		const nextWeek = this.parseSelectedDate(next.selectedWeek);
+		const nextWeek = this.parseSelectedWeek(next.selectedWeek);
 		const stateDate = this.parseSelectedDate(selectedDate);
-		const stateWeek = this.parseSelectedDate(selectedWeek);
+		const stateWeek = this.parseSelectedWeek(selectedWeek);
 
 		this.setState({
 			collapsedHeight: next.collapsedHeight,
@@ -150,33 +162,28 @@ class InfiniteCalendar extends Component {
 			this.updateYears(next);
 		}
 
-		if (next.selectedDate !== null && moment(nextDate).valueOf() !== stateDate) {
+		// parseSelectedDate/parseSelectedWeek clamp to _minDate/_maxDate, so a
+		// non-null result is always in range. Only react when the selection
+		// actually changed — the parent may re-render with identical props, and
+		// scrolling then would fight the user's own scrolling.
+		if (next.selectedDate !== null && nextDate && (!stateDate || !nextDate.isSame(stateDate, 'day'))) {
+			this.setState({
+				selectedWeek: null,
+				selectedDate: nextDate,
+			});
 
-			if (new Date(nextDate).getTime() > new Date(minDate.year + "-01-01").getTime() &&
-					new Date(nextDate).getTime() < new Date(maxDate.year + "-12-31").getTime()) {
-				this.setState({
-					selectedWeek: null,
-					selectedDate: nextDate,
-					isCollapsed: true,
-				});
-
-				this.clearHighlight();
-				this.scrollToDate(nextDate, 0);
-			}
+			this.clearHighlight();
+			this.scrollToDate(nextDate, 0);
 		}
-		
-		if (next.selectedWeek !== null && nextWeek !== stateWeek) {
-			if (new Date(nextWeek).getTime() > new Date(minDate.year + "-01-01").getTime() &&
-					new Date(nextWeek).getTime() < new Date(maxDate.year + "-12-31").getTime()) {
-				this.setState({
-					selectedWeek: nextWeek,
-					selectedDate: null,
-					isCollapsed: true,
-				});
 
-				this.clearHighlight();
-				this.scrollToDate(nextWeek, 0);
-			}
+		if (next.selectedWeek !== null && nextWeek && (!stateWeek || !nextWeek.isSame(stateWeek, 'week'))) {
+			this.setState({
+				selectedWeek: nextWeek,
+				selectedDate: null,
+			});
+
+			this.clearHighlight();
+			this.scrollToDate(nextWeek, 0);
 		}
 
 		this.setState({
@@ -197,7 +204,7 @@ class InfiniteCalendar extends Component {
 	}
 
 	handleClickOutside(evt) {
-    if (!this.state.isCollapsed) {
+    if (!this.state.isCollapsed && this.state.desktop) {
    		this.setState({
    			isCollapsed: true,
    		}, () => {
@@ -243,10 +250,24 @@ class InfiniteCalendar extends Component {
 	}
 
 	updateYears(props = this.props) {
-		let min = this._min = moment(props.min);
-		let max = this._max = moment(props.max);
-		this._minDate = moment(props.minDate);
-		this._maxDate = moment(props.maxDate);
+		// min/max/minDate/maxDate may arrive as {year, month, day} objects (the
+		// defaults and what Wavy Business passes), moments, or anything moment
+		// can parse. Never go through new Date(string) — string parsing gives
+		// Invalid Date in Safari/WebKit for non-ISO formats.
+		const parseProp = (value) => {
+			if (!value) return moment();
+			if (moment.isMoment(value)) return value;
+			if (value.date && moment.isMoment(value.date)) return value.date;
+			if (typeof value === 'object' && value.year !== undefined && value.month !== undefined) {
+				return moment(new Date(value.year, value.month, value.day || value.date || 1));
+			}
+			return moment(value);
+		};
+
+		let min = this._min = parseProp(props.min);
+		let max = this._max = parseProp(props.max);
+		this._minDate = parseProp(props.minDate);
+		this._maxDate = parseProp(props.maxDate);
 
 		this.years = range(min.year(), max.year() + 1).map((year) => getMonthsForYear(year, min, max));
 		this.months = [].concat.apply([], this.years);
@@ -283,19 +304,20 @@ class InfiniteCalendar extends Component {
 					onSelect(selectedDate, e);
 				}
 
-				const prevCollapsed = this.state.isCollapsed;
+				this.setState({
+					isCollapsed: this.state.desktop,
+				});
 
 				this.setState({
 					selectedDate: selectedDate,
 					selectedWeek: null,
-					isCollapsed: true,
 				}, () => {
 					this.clearHighlight();
 
-					if (!prevCollapsed || moment(selectedDate).format('YYYYMMDD') === moment().format('YYYYMMDD')) {
+					if (selectedDate) {
 						this.scrollToDate(selectedDate, 0);
 					}
-					
+
 					if (typeof afterSelect == 'function') {
 						afterSelect(selectedDate);
 					}
@@ -304,7 +326,7 @@ class InfiniteCalendar extends Component {
 		}
 	};
 
-	onWeekSelect = (selectedWeek) => {
+	onWeekSelect = (selectedWeek, e) => {
 		if (selectedWeek !== this.state.selectedWeek) {
 			let {afterSelect, beforeSelect, onSelect} = this.props;
 
@@ -313,17 +335,18 @@ class InfiniteCalendar extends Component {
 					onSelect(selectedWeek, e);
 				}
 
-				const prevCollapsed = this.state.isCollapsed;
+				this.setState({
+					isCollapsed: this.state.desktop,
+				});
 
 				this.setState({
 					selectedWeek: selectedWeek,
 					selectedDate: null,
-					isCollapsed: true,
 					isClickOnDatepicker: true,
 				}, () => {
 					this.clearHighlight();
 
-					if (!prevCollapsed || (moment(selectedWeek).format('ww') === moment().format('ww') && moment(selectedWeek).format('YYYY') === moment().format('YYYY'))) {
+					if (selectedWeek) {
 						this.scrollToDate(selectedWeek, 0);
 					}
 
@@ -347,18 +370,15 @@ class InfiniteCalendar extends Component {
 		return this.list && this.list.scrollTo(offset);
 	};
 
-	scrollToDate = (date = moment(), offset) => {
+	scrollToDate = (date = moment(), offset, forceScroll, animated) => {
+		// Scrolling must never change the collapsed/expanded state — collapsing
+		// is decided by the select handlers and handleClickOutside.
 		this.setState({
 			isScrolling: false,
 			expandOnScroll: false,
 		}, () => {
-			this.list.scrollToDate(date, offset);
-
-			if (!this.state.isCollapsed) {
-				this.setState({
-					isCollapsed: true,
-					expandOnScroll: true,
-				});
+			if (this.list) {
+				this.list.scrollToDate(date, offset, forceScroll, animated);
 			}
 		});
 	};
@@ -366,6 +386,15 @@ class InfiniteCalendar extends Component {
 	handleExpansionClick = () => {
 		this.setState({
 			isCollapsed: false,
+		}, () => {
+			// Wait for the expansion before positioning, so the visibility check
+			// in List.scrollToDate sees the expanded viewport.
+			let targetDate = this.state.selectedWeek || this.state.selectedDate;
+			if (targetDate) {
+				setTimeout(() => {
+					this.scrollToDate(targetDate, 0);
+				}, 50);
+			}
 		});
 	};
 
@@ -585,6 +614,7 @@ class InfiniteCalendar extends Component {
 			width,
 			showSelectionText,
 			device,
+			desktop,
 			...other
 		} = this.props;
 		let disabledDates = this.getDisabledDates(this.props.disabledDates);
@@ -606,11 +636,13 @@ class InfiniteCalendar extends Component {
 				style={{color: theme.textColor.default, width: '100%', overflow: (isCollapsed) ? 'hidden' : 'visible', height: collapsedHeight+"px" }}
 				aria-label="Calendar" ref="node"
 			>
-				<div
-					className={classNames(style.expansionButton.root, 'ion-chevron-down')}
-					style={{ display: (isCollapsed) ? 'initial' : 'none'}}
-					onClick={this.handleExpansionClick}
-				></div>
+				{desktop &&
+					<div
+						className={classNames(style.expansionButton.root, 'ion-chevron-down')}
+						style={{ display: (isCollapsed) ? 'initial' : 'none'}}
+						onClick={this.handleExpansionClick}
+					></div>
+				}
 				{showHeader &&
 					<Header
 						selectedDate={selectedDate}
