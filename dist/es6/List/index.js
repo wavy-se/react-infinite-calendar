@@ -178,13 +178,27 @@ var List = function (_Component) {
 			this.scrollEl = grid && grid._scrollingContainer;
 		}
 	}, {
+		key: 'getTargetDate',
+		value: function getTargetDate(props) {
+			var selectedDate = props.selectedDate;
+			var selectedWeek = props.selectedWeek;
+			return (selectedDate && selectedDate.date) || (selectedWeek && selectedWeek.date) || (selectedWeek && (moment.isMoment(selectedWeek) || selectedWeek._isAMomentObject) ? selectedWeek : null) || (selectedWeek ? moment(selectedWeek) : null) || (selectedDate ? moment(selectedDate) : null) || null;
+		}
+	}, {
 		key: 'componentWillReceiveProps',
 		value: function componentWillReceiveProps(nextProps) {
-			var selectedDate = nextProps.selectedDate;
-			var selectedWeek = nextProps.selectedWeek;
-			var targetDate = (selectedDate && selectedDate.date) || (selectedWeek && selectedWeek.date) || (selectedWeek && (moment.isMoment(selectedWeek) || selectedWeek._isAMomentObject) ? selectedWeek : null) || (selectedWeek ? moment(selectedWeek) : null) || (selectedDate ? moment(selectedDate) : null);
-			if (targetDate) {
-				this.scrollToDate(targetDate, 0);
+			// Scrolla BARA när valt datum/vecka faktiskt byts. Listan får nya
+			// props vid VARJE omrendering av föräldern – bl.a. när isScrolling
+			// slår om i onScrollEnd/handleTouchEnd så fort användaren slutar
+			// skrolla på mobil. En villkorslös scrollToDate drog då tillbaka
+			// listan till redan vald vecka när man släppte fingret, så man
+			// aldrig kunde skrolla fram och välja en annan vecka.
+			var nextTarget = this.getTargetDate(nextProps);
+			var prevTarget = this.getTargetDate(this.props);
+			var nextKey = nextTarget ? moment(nextTarget).format('YYYYMMDD') : null;
+			var prevKey = prevTarget ? moment(prevTarget).format('YYYYMMDD') : null;
+			if (nextTarget && nextKey !== prevKey) {
+				this.scrollToDate(nextTarget, 0);
 			}
 		}
 	}, {

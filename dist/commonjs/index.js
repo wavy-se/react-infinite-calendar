@@ -540,6 +540,16 @@ var InfiniteCalendar = function (_Component) {
 			var stateDate = this.parseSelectedDate(selectedDate);
 			var stateWeek = this.parseSelectedDate(selectedWeek);
 
+			// Jämför på dagsnivå: värdappen renderar om pickern vid varje reaktiv
+			// ändring (höjder, mobil/desktop) även när datumet är detsamma, och
+			// utan jämförelsen scrollade varje sådan uppdatering tillbaka till
+			// redan valt datum/vecka mitt i användarens egen skrollning.
+			var dayKey = function (d) {
+				return d ? (0, _moment2.default)(d).format('YYYYMMDD') : null;
+			};
+			var dateChanged = dayKey(nextDate) !== dayKey(stateDate);
+			var weekChanged = dayKey(nextWeek) !== dayKey(stateWeek);
+
 			this.setState({
 				collapsedHeight: next.collapsedHeight,
 				expandedHeight: next.expandedHeight
@@ -553,7 +563,7 @@ var InfiniteCalendar = function (_Component) {
 				this.updateYears(next);
 			}
 
-			if (next.selectedDate !== null) {
+			if (next.selectedDate !== null && dateChanged) {
 				var nextDateTime = nextDate ? (nextDate.toDate ? nextDate.toDate().getTime() : new Date(nextDate).getTime()) : 0;
 				if (nextDateTime > new Date(minDate.year + "-01-01").getTime() && nextDateTime < new Date(maxDate.year + "-12-31").getTime()) {
 					this.setState({
@@ -566,7 +576,7 @@ var InfiniteCalendar = function (_Component) {
 				}
 			}
 
-			if (next.selectedWeek !== null) {
+			if (next.selectedWeek !== null && weekChanged) {
 				var nextWeekTime = nextWeek ? (nextWeek.toDate ? nextWeek.toDate().getTime() : new Date(nextWeek).getTime()) : 0;
 				if (nextWeekTime > new Date(minDate.year + "-01-01").getTime() && nextWeekTime < new Date(maxDate.year + "-12-31").getTime()) {
 					this.setState({
